@@ -31,14 +31,14 @@ npm run dev
 - View notes highlighted on the fretboard
 - See note names for easy learning
 
-### Playback Controls
+### Playback Controls (WIP)
 - Start/Stop playback
 - Adjust tempo (40-208 BPM)
 - Toggle ascending/descending patterns
 - Enable/disable looping
 - Show all scale positions or focus on specific ones
 
-### Visual Feedback
+### Visual Feedback (WIP)
 - Notes highlight as they're played
 - Clear indication of current position
 - Dark theme for reduced eye strain
