@@ -25,6 +25,7 @@ const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [audioContextStarted, setAudioContextStarted] = useState(false);
+    const [activeNotes, setActiveNotes] = useState<{ [key: string]: boolean }>({});
 
     const sampler = useMemo(() => {
         console.log("Initializing guitar sampler...");
@@ -226,13 +227,25 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
         return result;
     };
 
-    const playNote = async (stringNote: string, stringIndex: number, fret: number) => {
+    const playNote = async (stringNote: string, stringIndex: number, fret: number, animate: boolean = true) => {
         if (!audioContextStarted) {
             console.log("Initializing audio on first click");
             await initAudio();
         }
 
         try {
+            if (animate) {
+                // Trigger radial ripple effect only if animate is true
+                const noteKey = `${stringIndex}-${fret}`;
+                setActiveNotes(prev => ({ ...prev, [noteKey]: true }));
+                setTimeout(() => {
+                    setActiveNotes(prev => {
+                        const newState = { ...prev };
+                        delete newState[noteKey];
+                        return newState;
+                    });
+                }, 600);
+            }
             if (Tone.getContext().state !== "running") {
                 await Tone.getContext().resume();
             }
@@ -262,7 +275,8 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
 
         const intervalPlayNote = () => {
             const note = scaleNotes[currentNoteRef.current];
-            playNote(note, 0, 0);
+            // Call playNote with animate = false so that auto-play does not show the ripple
+            playNote(note, 0, 0, false);
             currentNoteRef.current = (currentNoteRef.current + 1) % scaleNotes.length;
         };
 
@@ -282,6 +296,9 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
             const handleClick = () => {
                 playNote(stringNote, stringIndex, fretIndex);
             };
+
+            // Determine the key for this note
+            const noteKey = `${stringIndex}-${fretIndex}`;
 
             const getBackgroundColor = () => {
                 if (isRoot) return 'rgba(144, 202, 249, 0.45)';
@@ -315,6 +332,7 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         position: 'relative',
+                        overflow: 'hidden',
                         backgroundColor: getBackgroundColor(),
                         color: isInScale ? '#fff' : 'rgba(255, 255, 255, 0.3)',
                         fontSize: fretIndex === 0 ? '0.875rem' : (displayNote.length > 2 ? '0.75rem' : '0.875rem'),
@@ -348,20 +366,26 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
                                 ? 'rgba(144, 202, 249, 0.8)'
                                 : 'rgba(144, 249, 202, 0.8)',
                         } : undefined,
-                        '&::before': showFretMarker ? {
-                            content: '""',
-                            position: 'absolute',
-                            bottom: -20,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: fretIndex === 12 ? '10px' : '6px',
-                            height: fretIndex === 12 ? '10px' : '6px',
-                            borderRadius: '50%',
-                            backgroundColor: 'rgba(255, 255, 255, 0.4)',
-                        } : undefined,
                     }}
                 >
-                    {fretIndex === 0 ? stringNote : displayNote}
+                    { /* Radial ripple effect indicator */}
+                    {activeNotes[noteKey] && (
+                        <Box sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            width: '40px',
+                            height: '40px',
+                            transform: 'translate(-50%, -50%)',
+                            borderRadius: '50%',
+                            border: '2px solid rgba(255,255,255,0.9)',
+                            pointerEvents: 'none',
+                            animation: 'radialRipple 0.6s ease-out',
+                            zIndex: 0,
+                        }} />
+                    )}
+                    { /* Existing note content (e.g., displayNote) */}
+                    {displayNote}
                 </Box>
             );
         });
@@ -409,63 +433,95 @@ const Fretboard: React.FC<FretboardProps> = ({ scale, isPlaying, volume }) => {
     }
 
     return (
-        <Paper
-            elevation={3}
-            sx={{
-                p: 2,
-                pt: 4,
-                pb: 4,
-                mb: 4,
-                backgroundColor: '#1e1e1e',
-                overflowX: 'auto',
-            }}
-            onClick={handleContainerClick}
-        >
-            <Box
+        <>
+            <style>{`
+                @keyframes radialRipple {
+                    0% { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
+                    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+                }
+            `}</style>
+            <Paper
+                elevation={3}
                 sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: 'fit-content',
-                    position: 'relative',
-                    mt: 3.5,
+                    p: 2,
+                    pt: 4,
+                    pb: 4,
+                    mb: 4,
+                    backgroundColor: '#1e1e1e',
+                    overflowX: 'auto',
                 }}
+                onClick={handleContainerClick}
             >
-                {/* Fret number header bar */}
                 <Box
                     sx={{
-                        position: 'absolute',
-                        top: -28,
-                        left: 40,
-                        right: 0,
-                        height: 28,
-                        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderBottom: '2px solid rgba(255, 255, 255, 0.6)',
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
+                        minWidth: 'fit-content',
+                        position: 'relative',
+                        mt: 3.5,
                     }}
                 >
-                    {Array.from({ length: FRETS }).map((_, index) => (
-                        <Box
-                            key={`fret-number-${index + 1}`}
-                            sx={{
-                                width: 60,
-                                textAlign: 'center',
-                                fontSize: '0.75rem',
-                                color: 'rgba(255, 255, 255, 0.9)',
-                                fontWeight: 500,
-                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-                                letterSpacing: '0.02em',
-                            }}
-                        >
-                            {index + 1}
+                    {/* Fret number header bar */}
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: -28,
+                            left: 40,
+                            right: 0,
+                            height: 28,
+                            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                            borderTopLeftRadius: 8,
+                            borderTopRightRadius: 8,
+                            borderBottom: '2px solid rgba(255, 255, 255, 0.6)',
+                            display: 'flex',
+                            alignItems: 'center',
+                        }}
+                    >
+                        {Array.from({ length: FRETS }).map((_, index) => (
+                            <Box
+                                key={`fret-number-${index + 1}`}
+                                sx={{
+                                    width: 60,
+                                    textAlign: 'center',
+                                    fontSize: '0.75rem',
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    fontWeight: 500,
+                                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                                    letterSpacing: '0.02em',
+                                }}
+                            >
+                                {index + 1}
+                            </Box>
+                        ))}
+                    </Box>
+                    {STRINGS.map((note, index) => renderString(note, index))}
+                    {/* Legend for scale colors */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            mt: 2,
+                            flexWrap: 'wrap',
+                            gap: 2
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(144, 202, 249, 0.45)', borderRadius: '50%' }} />
+                            <Typography variant="caption" sx={{ color: '#fff' }}>Root Note</Typography>
                         </Box>
-                    ))}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(144, 249, 202, 0.45)', borderRadius: '50%' }} />
+                            <Typography variant="caption" sx={{ color: '#fff' }}>Fifth Note</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(144, 202, 249, 0.16)', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)' }} />
+                            <Typography variant="caption" sx={{ color: '#fff' }}>In Scale</Typography>
+                        </Box>
+                    </Box>
                 </Box>
-                {STRINGS.map((note, index) => renderString(note, index))}
-            </Box>
-        </Paper>
+            </Paper>
+        </>
     );
 };
 

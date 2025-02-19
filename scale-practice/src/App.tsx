@@ -36,7 +36,7 @@ function App() {
       <Container maxWidth="lg">
         <Box sx={{ my: 4 }}>
           <h1 style={{ color: '#fff', marginBottom: '2rem', textAlign: 'center' }}>
-            Guitar Scale Practice
+            Scale Explorer
           </h1>
           <Fretboard
             scale={selectedScale}
